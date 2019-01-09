@@ -18,6 +18,266 @@ int32 UReplay::GetNumberOfTurns() {
 	return (Bytes.Num() - 6) / 8;
 }
 
+float UReplay::GetRandom() {
+	float Random = FMath::Sin(Seed++) * 10000;
+	return Random - FMath::FloorToInt(Random);
+}
+
+FBCMap UReplay::MakeMap() {
+	int32 Width = FMath::FloorToInt(GetRandom() * 33) + 32;
+	int32 Height = Width;
+
+	FBCMap PassMap = FBCMap(Width, Height);
+
+	//Figure out chunk Width and Height accordingly.
+	// Here, we have just two players and are assuming horizontal orientation to start, so this is easy
+	int32 ch = FMath::CeilToInt(Height / 2);
+	int32 cw = Width;
+
+	// Determine passability using ideas from 
+	// https://gamedevelopment.tutsplus.com/tutorials/generate-random-cave-levels-using-cellular-automata--gamedev-9664
+	// Note: It's really sensitive to all three of these parameters.
+	float StartAlive = GetRandom()*0.07 + 0.38;
+	int32 Birth = 5;
+	int32 Death = 4;
+
+	PassMap.SetFields(0, cw, 0, ch, -1);
+
+	for (int32 w = 0; w < cw; w++) for (int32 h = 0; h < ch; h++) {
+		int32 Value = GetRandom() < StartAlive ? 1 : 0;
+		PassMap.SetField(w, h, Value);
+	}
+
+	for (int32 i = 0; i<2; i++) {
+		FBCMap NewPassMap = FBCMap(cw, ch);
+		for (int32 m = 0; m<cw; m++) {
+			for (int32 n = 0; n<ch; n++) {
+				int32 TrueSquares = PassMap.CountNumberOfTrueSquares(m, n);
+				int32 Value = (PassMap.GetField(n, m) && TrueSquares >= Death) || (!PassMap.GetField(n, m) && TrueSquares >= Birth);
+				NewPassMap.SetField(n, m, Value);
+			}
+		}
+		PassMap = NewPassMap;
+	}
+
+	// Invert the PassMap
+	for (int32 m = 0; m<cw; m++) {
+		for (int32 n = 0; n<ch; n++) {
+			PassMap.SetField(n, m, PassMap.GetField(n, m) > 0 ? 0 : 1);
+		}
+	}
+
+	/*
+	// Flood fill to find all of the different sections of the map
+	int32 regions = [];
+	int32 visited = MakeMapHelper(false, cw, ch);
+
+	for (int32 n = 0; n<ch; n++) {
+		for (int32 m = 0; m<cw; m++) {
+			if (PassMap[n][m] && !visited[n][m]) {
+				regions.push([]);
+				int32 stack = [[m, n]]; // Stack-based DFS to flood-fill
+				while (stack.length > 0) {
+					int32 coords = stack.pop();
+					int32 x = coords[0];
+					int32 y = coords[1];
+
+					regions[regions.length - 1].push(coords);
+					visited[y][x] = true;
+
+					if (y > 0 && PassMap[y - 1][x] && !visited[y - 1][x]) stack.push([x, y - 1]);
+					if (x > 0 && PassMap[y][x - 1] && !visited[y][x - 1]) stack.push([x - 1, y]);
+					if (y < ch - 1 && PassMap[y + 1][x] && !visited[y + 1][x]) stack.push([x, y + 1]);
+					if (x < cw - 1 && PassMap[y][x + 1] && !visited[y][x + 1]) stack.push([x + 1, y]);
+				}
+			}
+		}
+	}
+
+	regions.sort(x = > -1 * x.length);
+	for (int32 region = 1; region < regions.length; region++) {
+		for (int32 i = 0; i<regions[region].length; i++) {
+			int32 coord = regions[region][i];
+			PassMap[coord[1]][coord[0]] = false;
+		}
+	}
+
+	// Generate other features: castles, karbonite and fuel depots
+
+	// Select number of castles:
+	int32 num_castles = Math.min(Math.max(Math.floor(2.5*GetRandom() + ((Height + Width) / 64) - 0.5), 1), 3);
+
+	// Choose their locations. We prefer for opposing castles to be far away, so we'll weight the distribution towards the bottom of the map depending on prefer_horizontal and ignore castles which are too close to the midline of the map. Additionally, we want castles on the same team to be at least a certain distance from each other, so we'll re-roll if that's not met.
+	int32 roll_castle = function() {
+		int32 triangle_ch = ch*(ch + 1) / 2;
+		int32 y = 0;
+		while (y<3 || y > ch - 8) y = ch - Math.floor(0.5*(Math.sqrt(1 + 8 * GetRandom()*triangle_ch) - 1));
+		int32 x = Math.floor(GetRandom()*cw);
+
+		return[x, y]
+	}.bind(this);
+
+	int32 castles = [];
+	int32 counter = 0; // This is for the rare case that a solution doesn't actually exist, to ensure that we terminate.
+	for (int32 i = 0; i<num_castles; i++) {
+		int32 coord = roll_castle();
+
+		// forgive me christ
+		while (!PassMap[coord[1]][coord[0]] || (castles.length > 0 && Math.min.apply(NULL, castles.map(c = > Math.abs(c[0] - coord[0]) + Math.abs(c[1] - coord[1]))) < 16) && counter < 1000) {
+			coord = roll_castle();
+			counter += 1;
+		}
+
+		if (counter < 1000) castles.push(coord);
+	}
+
+	int32 roll_resource_seed = _ = >[Math.floor(GetRandom()*cw), Math.floor(GetRandom()*ch)];
+
+	int32 resource_density = GetRandom() * (1 / 200 - 1 / 400) + 1 / 400;
+	int32 num_resource_clusters = Math.round(cw*ch*resource_density);
+
+	int32 resources_cluster_seeds = insulate(castles); // Castles must be seeds of resources
+	counter = 0; // This is for the rare case that a solution doesn't actually exist, to ensure that we terminate.
+	for (int32 n = resources_cluster_seeds.length; n<num_resource_clusters; n++) {
+		int32 coord = roll_resource_seed();
+
+		// oops i did it again
+		while (!PassMap[coord[1]][coord[0]] || Math.min.apply(NULL, resources_cluster_seeds.map(c = > Math.abs(c[0] - coord[0]) + Math.abs(c[1] - coord[1]))) < 12 && counter < 1000) {
+			coord = roll_resource_seed();
+			counter += 1;
+		}
+
+		if (counter < 1000) resources_cluster_seeds.push(coord);
+	}
+
+	// Now that we have the seed locations for the clusters, we'll roll for how many resources we put in (karbonite and fuel separately)
+	// Locations closer to the midline will tend to have more resources, to discourage turtling.
+	int32 karbonite_depots = [];
+	int32 fuel_depots = [];
+	visited = MakeMapHelper(NULL, cw, ch);
+
+	// helper to check if coordinate is in a list
+	function c_in(c, l) {
+		for (int32 i = 0; i<l.length; i++) {
+			if (l[i][0] == = c[0] && l[i][1] == = c[1]) return true;
+		} return false;
+	}
+
+	for (int32 i = 0; i<resources_cluster_seeds.length; i++) {
+		int32 x;
+		int32 y;
+
+		[x, y] = resources_cluster_seeds[i];
+
+		// Choose amount of karbonite and fuel in the cluster.
+		int32 num_karbonite = Math.max(1, Math.round(GetRandom() * 4 * (y / ch / 2 + .5)));
+		int32 num_fuel = Math.max(1, Math.round(GetRandom() * 4 * (y / ch / 2 + .5)));
+		int32 total_depot = num_karbonite + num_fuel;
+
+		// We now run a BFS to choose
+		int32 region = [];
+		int32 queue = []; // Queue-based BFS for finding the region:
+		queue.push([x, y]);
+
+		for (int32 z = 0; z<5 * total_depot; z++) { // Choose an area 5x larger than necessary for the resource cluster.
+			[x, y] = queue.pop(0);
+			region.push([x, y]);
+			visited[y][x] = true;
+
+			if (y > 0 && PassMap[y - 1][x] && !visited[y - 1][x]) queue.push([x, y - 1]);
+			if (x > 0 && PassMap[y][x - 1] && !visited[y][x - 1]) queue.push([x - 1, y]);
+			if (y < ch - 1 && PassMap[y + 1][x] && !visited[y + 1][x]) queue.push([x, y + 1]);
+			if (x < cw - 1 && PassMap[y][x + 1] && !visited[y][x + 1]) queue.push([x + 1, y]);
+
+		}
+
+		// Choose the actual karbonite and fuel locations
+
+		counter = 0; // This is for the rare case that a solution doesn't actually exist, to ensure that we terminate.
+		for (int32 k = 0; k<num_karbonite; k++) {
+			[x, y] = region[Math.floor(GetRandom()*region.length)];
+
+			while ((c_in([x, y], castles) || c_in([x, y], karbonite_depots) || c_in([x, y], fuel_depots)) && counter < 10000) {
+				[x, y] = region[Math.floor(GetRandom()*region.length)];
+				counter++;
+			}
+
+			if (counter < 10000) karbonite_depots.push([x, y]);
+		}
+		counter = 0; // This is for the rare case that a solution doesn't actually exist, to ensure that we terminate.
+		for (int32 k = 0; k<num_fuel; k++) {
+			[x, y] = region[Math.floor(GetRandom()*region.length)];
+
+			while ((c_in([x, y], castles) || c_in([x, y], karbonite_depots) || c_in([x, y], fuel_depots)) && counter < 10000) {
+				[x, y] = region[Math.floor(GetRandom()*region.length)];
+				counter++;
+			}
+
+			if (counter < 10000) fuel_depots.push([x, y]);
+		}
+
+
+	}
+
+	// Convert lists into bool maps
+	int32 karb_map = MakeMapHelper(false, cw, ch);
+
+	int32 fuel_map = MakeMapHelper(false, cw, ch);
+
+	for (int32 i = 0; i<karbonite_depots.length; i++) {
+		karb_map[karbonite_depots[i][1]][karbonite_depots[i][0]] = true;
+	}
+
+	for (int32 i = 0; i<fuel_depots.length; i++) {
+		fuel_map[fuel_depots[i][1]][fuel_depots[i][0]] = true;
+	}
+
+	// mirror the map
+	int32 full_passmap = MakeMapHelper(false, Width, Height);
+
+	int32 full_karbmap = MakeMapHelper(false, Width, Height);
+
+	int32 full_fuelmap = MakeMapHelper(false, Width, Height);
+
+	int32 transpose = GetRandom() < 0.5;
+	for (int32 n = 0; n<Height; n++) {
+		for (int32 m = 0; m<Width; m++) {
+			full_passmap[transpose ? m : n][transpose ? n : m] = n<ch ? PassMap[n][m] : PassMap[Height - n - 1][m];
+			full_fuelmap[transpose ? m : n][transpose ? n : m] = n<ch ? fuel_map[n][m] : fuel_map[Height - n - 1][m];
+			full_karbmap[transpose ? m : n][transpose ? n : m] = n<ch ? karb_map[n][m] : karb_map[Height - n - 1][m];
+		}
+	}
+
+	int32 all_castles = castles.concat(castles.map(c = >[c[0], Height - c[1] - 1]));
+	if (transpose) all_castles = all_castles.map(c = >[c[1], c[0]]);
+
+
+	this.shadow = MakeMapHelper(0, Width, Height);
+
+	this.karbonite_map = full_karbmap;
+	this.fuel_map = full_fuelmap;
+	this.map = full_passmap;
+
+	int32 to_create = [];
+
+	for (int32 i = 0; i<all_castles.length / 2; i++) {
+		to_create.push({
+		team:0,
+				x : all_castles[i][0],
+					y : all_castles[i][1]
+		});
+
+		to_create.push({
+		team:1,
+				x : all_castles[(all_castles.length / 2) + i][0],
+					y : all_castles[(all_castles.length / 2) + i][1]
+		});
+	}
+	*/
+
+	return PassMap;
+}
+
 void UReplay::Initialize() {
 	for (int i = 0; i < 4; i++) {
 		Seed += Bytes[i + 2] << (24 - 8 * i);
