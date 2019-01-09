@@ -3,6 +3,17 @@
 	"EngineAssociation": "4.18",
 	"Category": "",
 	"Description": "",
+	"Modules": [
+		{
+			"Name": "BattleCodeVisualizer",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine",
+				"CoreUObject"
+			]
+		}
+	],
 	"Plugins": [
 		{
 			"Name": "UnrealJS",

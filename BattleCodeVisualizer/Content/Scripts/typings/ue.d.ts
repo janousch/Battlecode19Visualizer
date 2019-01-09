@@ -2965,6 +2965,42 @@ declare class AnimGraphNode_WheelHandler extends AnimGraphNode_SkeletalControlBa
 	static C(Other: UObject | any): AnimGraphNode_WheelHandler;
 }
 
+declare class ActionRecord { 
+	Signal: number;
+	SignalRadius: number;
+	CastleTalk: number;
+	Action: number;
+	TradeFuel: number;
+	TradeKarbonite: number;
+	Dx: number;
+	Dy: number;
+	GiveKarbonite: number;
+	GiveFuel: number;
+	BuildUnit: number;
+	clone() : ActionRecord;
+	static C(Other: UObject | any): ActionRecord;
+}
+
+declare class Replay extends UObject { 
+	static Load(ResourceName: string): Replay;
+	static Find(Outer: UObject, ResourceName: string): Replay;
+	static GetDefaultObject(): Replay;
+	static CreateDefaultSubobject(Name: string, Transient?: boolean, Required?: boolean, Abstract?: boolean): Replay;
+	GetTurn(Turn: number): ActionRecord;
+	GetNumberOfTurns(): number;
+	static C(Other: UObject | any): Replay;
+}
+
+declare class ReadReplayFile extends BlueprintFunctionLibrary { 
+	static Load(ResourceName: string): ReadReplayFile;
+	static Find(Outer: UObject, ResourceName: string): ReadReplayFile;
+	static GetDefaultObject(): ReadReplayFile;
+	static CreateDefaultSubobject(Name: string, Transient?: boolean, Required?: boolean, Abstract?: boolean): ReadReplayFile;
+	static ReadReplay(File: string): Replay;
+	static GetReplayFileNames(): string[];
+	static C(Other: UObject | any): ReadReplayFile;
+}
+
 declare type EMeshPaintColorViewMode = 'Normal' | 'RGB' | 'Alpha' | 'Red' | 'Green' | 'Blue';
 declare var EMeshPaintColorViewMode : { Normal:'Normal',RGB:'RGB',Alpha:'Alpha',Red:'Red',Green:'Green',Blue:'Blue', };
 declare class PaintBrushSettings extends UObject { 
