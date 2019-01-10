@@ -48,10 +48,10 @@ FBCMap UReplay::MakeMap() {
 		PassMap.SetField(w, h, Value);
 	}
 
-	for (int32 i = 0; i<2; i++) {
+	for (int32 i = 0; i < 2; i++) {
 		FBCMap NewPassMap = FBCMap(cw, ch);
-		for (int32 m = 0; m<cw; m++) {
-			for (int32 n = 0; n<ch; n++) {
+		for (int32 n = 0; n < cw; n++) {
+			for (int32 m = 0; m < ch; m++) {
 				int32 TrueSquares = PassMap.CountNumberOfTrueSquares(m, n);
 				int32 Value = (PassMap.GetField(n, m) && TrueSquares >= Death) || (!PassMap.GetField(n, m) && TrueSquares >= Birth);
 				NewPassMap.SetField(n, m, Value);
@@ -61,43 +61,42 @@ FBCMap UReplay::MakeMap() {
 	}
 
 	// Invert the PassMap
-	for (int32 m = 0; m<cw; m++) {
-		for (int32 n = 0; n<ch; n++) {
+	for (int32 n = 0; n <cw; n++) {
+		for (int32 m = 0; m < ch; m++) {
 			PassMap.SetField(n, m, PassMap.GetField(n, m) > 0 ? 0 : 1);
 		}
 	}
 
-	/*
 	// Flood fill to find all of the different sections of the map
-	int32 regions = [];
-	int32 visited = MakeMapHelper(false, cw, ch);
+	TArray<int32> Regions;
+	FBCMap Visited = FBCMap(cw, ch);
 
-	for (int32 n = 0; n<ch; n++) {
-		for (int32 m = 0; m<cw; m++) {
-			if (PassMap[n][m] && !visited[n][m]) {
-				regions.push([]);
-				int32 stack = [[m, n]]; // Stack-based DFS to flood-fill
-				while (stack.length > 0) {
-					int32 coords = stack.pop();
+	for (int32 m = 0; m < ch; m++) {
+		for (int32 n = 0; n < cw; n++) {
+			if (PassMap.GetField(n, m) > 0 && Visited.GetField(n, m) < 1) {
+				FBCMap Stack = FBCMap(n, m); // Stack-based DFS to flood-fill
+				while (Stack.Column.Num() > 0) {
+					int32 coords = Stack.pop();
 					int32 x = coords[0];
 					int32 y = coords[1];
 
-					regions[regions.length - 1].push(coords);
-					visited[y][x] = true;
+					Regions[Regions.length - 1].push(coords);
+					Visited[y][x] = true;
 
-					if (y > 0 && PassMap[y - 1][x] && !visited[y - 1][x]) stack.push([x, y - 1]);
-					if (x > 0 && PassMap[y][x - 1] && !visited[y][x - 1]) stack.push([x - 1, y]);
-					if (y < ch - 1 && PassMap[y + 1][x] && !visited[y + 1][x]) stack.push([x, y + 1]);
-					if (x < cw - 1 && PassMap[y][x + 1] && !visited[y][x + 1]) stack.push([x + 1, y]);
+					if (y > 0 && PassMap[y - 1][x] && !Visited[y - 1][x]) Stack.push([x, y - 1]);
+					if (x > 0 && PassMap[y][x - 1] && !Visited[y][x - 1]) Stack.push([x - 1, y]);
+					if (y < ch - 1 && PassMap[y + 1][x] && !Visited[y + 1][x]) Stack.push([x, y + 1]);
+					if (x < cw - 1 && PassMap[y][x + 1] && !Visited[y][x + 1]) Stack.push([x + 1, y]);
 				}
 			}
 		}
 	}
+	/*
 
-	regions.sort(x = > -1 * x.length);
-	for (int32 region = 1; region < regions.length; region++) {
-		for (int32 i = 0; i<regions[region].length; i++) {
-			int32 coord = regions[region][i];
+	Regions.sort(x = > -1 * x.length);
+	for (int32 region = 1; region < Regions.length; region++) {
+		for (int32 i = 0; i<Regions[region].length; i++) {
+			int32 coord = Regions[region][i];
 			PassMap[coord[1]][coord[0]] = false;
 		}
 	}
@@ -154,7 +153,7 @@ FBCMap UReplay::MakeMap() {
 	// Locations closer to the midline will tend to have more resources, to discourage turtling.
 	int32 karbonite_depots = [];
 	int32 fuel_depots = [];
-	visited = MakeMapHelper(NULL, cw, ch);
+	Visited = MakeMapHelper(NULL, cw, ch);
 
 	// helper to check if coordinate is in a list
 	function c_in(c, l) {
@@ -182,12 +181,12 @@ FBCMap UReplay::MakeMap() {
 		for (int32 z = 0; z<5 * total_depot; z++) { // Choose an area 5x larger than necessary for the resource cluster.
 			[x, y] = queue.pop(0);
 			region.push([x, y]);
-			visited[y][x] = true;
+			Visited[y][x] = true;
 
-			if (y > 0 && PassMap[y - 1][x] && !visited[y - 1][x]) queue.push([x, y - 1]);
-			if (x > 0 && PassMap[y][x - 1] && !visited[y][x - 1]) queue.push([x - 1, y]);
-			if (y < ch - 1 && PassMap[y + 1][x] && !visited[y + 1][x]) queue.push([x, y + 1]);
-			if (x < cw - 1 && PassMap[y][x + 1] && !visited[y][x + 1]) queue.push([x + 1, y]);
+			if (y > 0 && PassMap[y - 1][x] && !Visited[y - 1][x]) queue.push([x, y - 1]);
+			if (x > 0 && PassMap[y][x - 1] && !Visited[y][x - 1]) queue.push([x - 1, y]);
+			if (y < ch - 1 && PassMap[y + 1][x] && !Visited[y + 1][x]) queue.push([x, y + 1]);
+			if (x < cw - 1 && PassMap[y][x + 1] && !Visited[y][x + 1]) queue.push([x + 1, y]);
 
 		}
 

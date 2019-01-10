@@ -28,6 +28,9 @@ struct FBCMap {
 	UPROPERTY(BlueprintReadOnly)
 		TArray<FRow> Column;
 
+	int32 MapWidth;
+	int32 MapHeight;
+
 	void SetField(int32 X, int32 Y, int32 Value) {
 		Column[Y].Row[X] = Value;
 	}
@@ -68,11 +71,6 @@ struct FBCMap {
 	}
 	
 	FBCMap() {}
-
-private:
-
-	int32 MapWidth;
-	int32 MapHeight;
 };
 
 USTRUCT(BlueprintType)
