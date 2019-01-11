@@ -7,17 +7,17 @@
 #include "Replay.generated.h"
 
 USTRUCT(BlueprintType)
-struct FRow {
+struct FColumn {
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadOnly)
-		TArray<int32> Row;
+		TArray<int32> Rows;
 
-	FRow(int32 Width) {
-		Row.SetNumUninitialized(Width, false);
+	FColumn(int32 Height) {
+		Rows.SetNumUninitialized(Height, false);
 	}
 
-	FRow() {}
+	FColumn() {}
 };
 
 
@@ -26,17 +26,17 @@ struct FBCMap {
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadOnly)
-		TArray<FRow> Column;
+		TArray<FColumn> Columns;
 
 	int32 MapWidth;
 	int32 MapHeight;
 
 	void SetField(int32 X, int32 Y, int32 Value) {
-		Column[Y].Row[X] = Value;
+		Columns[X].Rows[Y] = Value;
 	}
 
 	int32 GetField(int32 X, int32 Y) {
-		return Column[Y].Row[X];
+		return Columns[X].Rows[Y];
 	}
 
 	void SetFields(int32 XStart, int32 XEnd, int32 YStart, int32 YEnd, int32 Value) {
@@ -47,27 +47,35 @@ struct FBCMap {
 		}
 	}
 
-	int32 CountNumberOfTrueSquares(int32 X, int32 Y) {
-		int32 Counter = 0;
-		
-		for (auto& i : { -1, 0, 1 }) {
-			int32 YCoord = Y + i;
-			for (auto j : { -1, 0, 1 }) {
-				int32 XCoord = X + j;
-				if (YCoord < MapHeight && XCoord < MapWidth && YCoord >= 0 && XCoord >= 0) {
-					Counter += GetField(XCoord, YCoord);
+	int32 CountAliveNeighbours(int32 X, int32 Y) {		
+		int32 Count = 0;
+		for (int i = -1; i < 2; i++) {
+			for (int j = -1; j < 2; j++) {
+				int32 NeighbourX = X + i;
+				int32 NeighbourY = Y + j;
+				//If we're looking at the middle point
+				if (i == 0 && j == 0) {
+					//Do nothing, we don't want to add ourselves in!
+				}
+				//In case the index we're looking at it off the edge of the map
+				else if (NeighbourX < 0 || NeighbourY < 0 || NeighbourX >= MapWidth || NeighbourY >= MapHeight) {
+					Count++;
+				}
+				//Otherwise, a normal check of the neighbour
+				else if (GetField(NeighbourX, NeighbourY) == 1) {
+					Count++;
 				}
 			}
 		}
 
-		return Counter;
+		return Count;
 	}
 
 	FBCMap(int32 Width, int32 Height) {
 		MapWidth = Width;
 		MapHeight = Height;
 
-		Column.Init(FRow(Width), Height);
+		Columns.Init(FColumn(Height), Width);
 	}
 	
 	FBCMap() {}
@@ -120,13 +128,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Replay")
 		int32 GetNumberOfTurns();
 
-	UFUNCTION(BlueprintPure, Category = "Replay")
-		float GetRandom();
-
 	UFUNCTION(BlueprintCallable, Category = "Replay")
 		FBCMap MakeMap();
 
-	void Initialize();
+	void InitializeSeed();
 
 private:
 
@@ -134,4 +139,13 @@ private:
 
 	FActionRecord DeserializeTurn(TArray<uint8> Turn);
 	
+	FBCMap InitializeMap(FBCMap Map);
+
+	FBCMap DoSimulationStep(FBCMap OldMap);
+
+	double Random();
+
+	FBCMap HorizontalMirroring(FBCMap OldMap);
+
+	FBCMap VerticalMirroring(FBCMap OldMap);
 };

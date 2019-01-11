@@ -21,7 +21,7 @@ TArray<FString> UReadReplayFile::GetReplayFileNames() {
 UReplay* UReadReplayFile::ReadReplay(FString File) {
 	UReplay* Replay = NewObject<UReplay>(UReplay::StaticClass());
 	FFileHelper::LoadFileToArray(Replay->Bytes, *File);
-	Replay->Initialize();
+	Replay->InitializeSeed();
 
 	return Replay;
 }

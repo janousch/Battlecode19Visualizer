@@ -2,6 +2,8 @@
 
 #include "Replay.h"
 
+#include <math.h>
+
 
 FActionRecord UReplay::GetTurn(int32 Turn, int32 Offset) {
 	TArray<uint8> DifferenceToNextTurn;
@@ -18,11 +20,114 @@ int32 UReplay::GetNumberOfTurns() {
 	return (Bytes.Num() - 6) / 8;
 }
 
-float UReplay::GetRandom() {
-	float Random = FMath::Sin(Seed++) * 10000;
-	return Random - FMath::FloorToInt(Random);
+double UReplay::Random() {
+	double X = sin(Seed++) * 10000;
+	double Random = X - FMath::FloorToInt(X);
+	return Random;
 }
 
+FBCMap UReplay::InitializeMap(FBCMap Map) {
+	float ChanceToStartAlive = Random()*0.07 + 0.38;
+
+	for (int x = 0; x < Map.MapWidth; x++) {
+		for (int y = 0; y < Map.MapHeight; y++) {
+			if (Random() < ChanceToStartAlive) {
+				Map.SetField(x, y, 1);
+			}
+			else {
+				Map.SetField(x, y, 0);
+			}
+		}
+	}
+
+	return Map;
+}
+
+FBCMap UReplay::MakeMap() {
+	int32 Width = FMath::FloorToInt(Random() * 33) + 32;
+	int32 Height = Width;
+
+	FBCMap CellMap = FBCMap(Width, Height / 2);
+	CellMap = InitializeMap(CellMap);
+	
+	int32 NumberOfSteps = 2;
+	for (int i = 0; i < NumberOfSteps; i++) {
+		CellMap = DoSimulationStep(CellMap);
+	}
+
+	// Invert ?!
+	for (int x = 0; x < CellMap.MapWidth; x++) {
+		for (int y = 0; y < CellMap.MapHeight; y++) {
+			int32 Value = CellMap.GetField(x, y) == 0 ? 1 : 0;
+			CellMap.SetField(x, y, Value);
+		}
+	}
+
+	CellMap = HorizontalMirroring(CellMap);
+	
+
+	return CellMap;
+}
+
+FBCMap UReplay::HorizontalMirroring(FBCMap OldMap) {
+	FBCMap NewMap = OldMap;
+
+	for (int x = 0; x < OldMap.MapWidth; x++) {
+		for (int y = OldMap.MapHeight - 1; y >= 0; y--) {
+			NewMap.Columns[x].Rows.Add(OldMap.GetField(x, y));
+		}
+	}
+
+	return NewMap;
+}
+
+FBCMap UReplay::VerticalMirroring(FBCMap OldMap) {
+	FBCMap NewMap = OldMap;
+
+	for (int x = OldMap.MapWidth - 1; x >= 0; x--) {
+		FColumn NewColumn;
+		for (int y = 0; y < OldMap.MapHeight; y++) {
+			NewColumn.Rows.Add(OldMap.GetField(x, y));
+		}
+		NewMap.Columns.Add(NewColumn);
+	}
+
+	return NewMap;
+}
+
+FBCMap UReplay::DoSimulationStep(FBCMap OldMap) {
+	int32 BIRTH_LIMIT = 5;
+	int32 DEATH_LIMIT = 4;
+
+	FBCMap NewMap = FBCMap(OldMap.MapWidth, OldMap.MapHeight);
+	//Loop over each row and column of the map
+	for (int x = 0; x < OldMap.MapWidth; x++) {
+		for (int y = 0; y < OldMap.MapHeight; y++) {
+			int nbs = OldMap.CountAliveNeighbours(x, y);
+			//The new value is based on our simulation rules
+			//First, if a cell is alive but has too few neighbours, kill it.
+			if (OldMap.GetField(x, y) == 1) {
+				if (nbs < DEATH_LIMIT) {
+					NewMap.SetField(x, y, 0);
+				}
+				else {
+					NewMap.SetField(x, y, 1);
+				}
+			} //Otherwise, if the cell is dead now, check if it has the right number of neighbours to be 'born'
+			else {
+				if (nbs > BIRTH_LIMIT) {
+					NewMap.SetField(x, y, 1);
+				}
+				else {
+					NewMap.SetField(x, y, 0);
+				}
+			}
+		}
+	}
+	return NewMap;
+}
+
+/*
 FBCMap UReplay::MakeMap() {
 	int32 Width = FMath::FloorToInt(GetRandom() * 33) + 32;
 	int32 Height = Width;
@@ -273,11 +378,14 @@ FBCMap UReplay::MakeMap() {
 		});
 	}
 	*/
-
+/*
 	return PassMap;
 }
+*/
 
-void UReplay::Initialize() {
+void UReplay::InitializeSeed() {
+	Seed = 0;
+
 	for (int i = 0; i < 4; i++) {
 		Seed += Bytes[i + 2] << (24 - 8 * i);
 	}
