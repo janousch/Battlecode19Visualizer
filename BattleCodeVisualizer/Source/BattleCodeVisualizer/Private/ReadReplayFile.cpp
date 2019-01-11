@@ -4,7 +4,6 @@
 
 #include "FileManager.h"
 #include "Paths.h"
-#include "FileHelpers.h"
 #include "FileHelper.h"
 
 TArray<FString> UReadReplayFile::GetReplayFileNames() {
