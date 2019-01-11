@@ -45,9 +45,9 @@ FBCMap UReplay::InitializeMap(FBCMap Map) {
 
 FBCMap UReplay::MakeMap() {
 	int32 Width = FMath::FloorToInt(Random() * 33) + 32;
-	int32 Height = Width;
+	int32 Height = Width / 2;
 
-	FBCMap CellMap = FBCMap(Width, Height / 2);
+	FBCMap CellMap = FBCMap(Width, Height);
 	CellMap = InitializeMap(CellMap);
 	
 	int32 NumberOfSteps = 2;
@@ -63,8 +63,45 @@ FBCMap UReplay::MakeMap() {
 		}
 	}
 
+	TArray<TArray<FPair>> Regions;
+	FBCMap Visited = FBCMap(Width, Height);
+	for (int y = 0; y < Height; y++) {
+		for (int x = 0; x < Width; x++) {
+			if (CellMap.GetField(x, y) == 1 && Visited.GetField(x, y) == 0) {
+				TArray<FPair> Stack;
+				Regions.Add(TArray<FPair>());
+				Stack.Insert(FPair(x, y), 0);
+
+				while (Stack.Num() != 0)
+				{
+					FPair P = Stack.Last();
+					int32 StackX = P.First, StackY = P.Second;
+					Stack.RemoveAt(Stack.Num() - 1);
+					Regions[Regions.Num() - 1].Add(P);
+					Visited.SetField(StackX, StackY, 1);
+
+					if (StackY > 0 && CellMap.GetField(StackX, StackY - 1) == 1 && Visited.GetField(StackX, StackY - 1) == 0) Stack.Insert(FPair(StackX, StackY - 1), 0);
+					if (StackX > 0 && CellMap.GetField(StackX - 1, StackY) == 1 && Visited.GetField(StackX - 1, StackY) == 0) Stack.Insert(FPair(StackX - 1, StackY), 0);
+					if (StackY < Height - 1 && CellMap.GetField(StackX, StackY + 1) == 1 && Visited.GetField(StackX, StackY + 1) == 0) Stack.Insert(FPair(StackX, StackY + 1), 0);
+					if (StackX < Width - 1 && CellMap.GetField(StackX + 1, StackY) == 1 && Visited.GetField(StackX + 1, StackY) == 0) Stack.Insert(FPair(StackX + 1, StackY), 0);
+				}
+			}
+		}
+	}
+
+	Regions.Sort([](const TArray<FPair>& V1, const TArray<FPair> V2) { return V1.Num() > V2.Num(); });
+
+	for (int i = 1; i < Regions.Num(); i++) {
+		TArray<FPair> Pairs = Regions[i];
+		for (int j = 0; j < Pairs.Num(); j++) {
+			CellMap.SetField(Pairs[j].First, Pairs[j].Second, 0);
+		}
+	}
+
 	CellMap = HorizontalMirroring(CellMap);
-	
+	CellMap.MapHeight = CellMap.Columns[0].Rows.Num();
+	CellMap.MapWidth = CellMap.Columns.Num();
+
 
 	return CellMap;
 }
@@ -77,7 +114,7 @@ FBCMap UReplay::HorizontalMirroring(FBCMap OldMap) {
 			NewMap.Columns[x].Rows.Add(OldMap.GetField(x, y));
 		}
 	}
-
+	
 	return NewMap;
 }
 
@@ -91,7 +128,7 @@ FBCMap UReplay::VerticalMirroring(FBCMap OldMap) {
 		}
 		NewMap.Columns.Add(NewColumn);
 	}
-
+	
 	return NewMap;
 }
 

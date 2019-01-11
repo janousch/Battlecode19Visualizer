@@ -6,6 +6,21 @@
 #include "UObject/NoExportTypes.h"
 #include "Replay.generated.h"
 
+USTRUCT()
+struct FPair {
+	GENERATED_BODY()
+
+	int32 First;
+	int32 Second;
+
+	FPair(int32 FirstValue, int32 SecondValue) {
+		First = FirstValue;
+		Second = SecondValue;
+	}
+
+	FPair() {}
+};
+
 USTRUCT(BlueprintType)
 struct FColumn {
 	GENERATED_BODY()
